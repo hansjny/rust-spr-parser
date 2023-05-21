@@ -1,6 +1,12 @@
 use std::{env, io};
+use std::io::{Read, Seek, SeekFrom};
 use std::fs::File;
 use std::process;
+
+struct SprHeader {
+    version: u32,
+    count: u16,
+}
 
 fn main() -> io::Result<()> {
 
@@ -12,14 +18,24 @@ fn main() -> io::Result<()> {
         },
     };
 
-    let file: File = match File::open(filename) {
+    let mut file: File = match File::open(filename) {
         Ok(file) => file,
         Err(e) => {
             println!("Error opening file: {}", e);
             process::exit(1);
         },
     };
-    print!("File opened successfully");
+    println!("File opened successfully");
+
+    let header: SprHeader = match read_header(&mut file) {
+        Ok(header) => header,
+        Err(e) => {
+            println!("Error reading header: {}", e);
+            process::exit(1);
+        },
+    };
+
+    print!("Version: {}, count {}", header.version, header.count);
     Ok(())
 }
 
@@ -33,4 +49,14 @@ fn parse_command_line() -> Result<String, &'static str> {
     {
         Ok(args[1].clone())
     }
+}
+
+fn read_header<R: Read + Seek>(reader: &mut R) -> io::Result<SprHeader> {
+    let mut buffer = [0; 6];
+    reader.seek(SeekFrom::Start(0))?;
+    reader.read_exact(&mut buffer)?;
+
+    let version = u32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
+    let count = u16::from_le_bytes([buffer[4], buffer[5]]);
+    Ok (SprHeader { version, count })
 }

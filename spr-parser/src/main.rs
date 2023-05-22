@@ -36,6 +36,9 @@ fn main() -> io::Result<()> {
     };
 
     print!("Version: {}, count {}", header.version, header.count);
+
+    read_all_sprites(header.count)?;
+
     Ok(())
 }
 
@@ -59,4 +62,17 @@ fn read_header<R: Read + Seek>(reader: &mut R) -> io::Result<SprHeader> {
     let version = u32::from_le_bytes([buffer[0], buffer[1], buffer[2], buffer[3]]);
     let count = u16::from_le_bytes([buffer[4], buffer[5]]);
     Ok (SprHeader { version, count })
+}
+
+fn read_all_sprites(sprite_count : u16) -> io::Result<()> {
+    let mut current_sprite: u16 =  0;
+    for i in 0..sprite_count {
+        read_sprite(current_sprite)?;
+        current_sprite += 1;
+    }
+
+    Ok(())
+}
+fn read_sprite(sprite_id : u16) -> io::Result<()> {
+    Ok(())
 }

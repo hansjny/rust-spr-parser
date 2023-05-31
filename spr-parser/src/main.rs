@@ -2,6 +2,7 @@ use std::{env, io};
 use std::io::{Read, Seek, SeekFrom};
 use std::fs::File;
 use std::process;
+use byteorder::{LittleEndian, ReadBytesExt};
 
 struct SprHeader {
     version: u32,
@@ -35,9 +36,9 @@ fn main() -> io::Result<()> {
         },
     };
 
-    print!("Version: {}, count {}", header.version, header.count);
+    println!("Version: {}, count {}", header.version, header.count);
 
-    read_all_sprites(header.count)?;
+    read_all_sprites(header.count, &mut file)?;
 
     Ok(())
 }
@@ -64,15 +65,27 @@ fn read_header<R: Read + Seek>(reader: &mut R) -> io::Result<SprHeader> {
     Ok (SprHeader { version, count })
 }
 
-fn read_all_sprites(sprite_count : u16) -> io::Result<()> {
-    let mut current_sprite: u16 =  0;
+fn read_all_sprites<R: Read + Seek>(sprite_count : u16, reader: &mut R) -> io::Result<()> {
+    let mut current_sprite: u16 =  1;
     for i in 0..sprite_count {
-        read_sprite(current_sprite)?;
         current_sprite += 1;
+        read_sprite(current_sprite, reader)?;
+        if i == 5 {
+            break;
+        }
     }
 
     Ok(())
 }
-fn read_sprite(sprite_id : u16) -> io::Result<()> {
+fn read_sprite<R: Read + Seek>(sprite_id : u16, reader : &mut R) -> io::Result<()> {
+    let mut offset : u64 = 6 + ((sprite_id as u64 - 1)  * 4);
+    reader.seek(SeekFrom::Start(offset))?;
+    let sprite_offset = reader.read_u32::<LittleEndian>()?;
+    reader.seek(SeekFrom::Start(sprite_offset as u64))?;
+    let sprite_size = reader.read_u16::<LittleEndian>()?;
+    let transparent_pixels = reader.read_u16::<LittleEndian>()?;
+    let colored_pixels = reader.read_u16::<LittleEndian>()?;
+    
+    println!("Reading sprite {}, sprite size {}, offset {}, trans pix: {}, color pix {}", sprite_id, sprite_size, offset, transparent_pixels, colored_pixels);
     Ok(())
 }

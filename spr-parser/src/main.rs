@@ -1,5 +1,5 @@
 use std::{env, io};
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, Write, SeekFrom};
 use std::fs::File;
 use std::process;
 use byteorder::{LittleEndian, ReadBytesExt};
@@ -7,6 +7,15 @@ use byteorder::{LittleEndian, ReadBytesExt};
 struct SprHeader {
     version: u32,
     count: u16,
+}
+
+type SpriteGrid = Vec<RGB>;
+
+#[derive(Debug, Clone, Copy)]
+struct RGB {
+    r: u8,
+    g: u8,
+    b: u8,
 }
 
 fn main() -> io::Result<()> {
@@ -66,26 +75,78 @@ fn read_header<R: Read + Seek>(reader: &mut R) -> io::Result<SprHeader> {
 }
 
 fn read_all_sprites<R: Read + Seek>(sprite_count : u16, reader: &mut R) -> io::Result<()> {
-    let mut current_sprite: u16 =  1;
+    let mut current_sprite: u16 =  0;
     for i in 0..sprite_count {
         current_sprite += 1;
         read_sprite(current_sprite, reader)?;
-        if i == 5 {
-            break;
-        }
+        break;
     }
 
     Ok(())
 }
 fn read_sprite<R: Read + Seek>(sprite_id : u16, reader : &mut R) -> io::Result<()> {
+    let mut sprite: SpriteGrid = vec![RGB { r: 0, g: 0, b: 0 }; 32 * 32];
     let mut offset : u64 = 6 + ((sprite_id as u64 - 1)  * 4);
     reader.seek(SeekFrom::Start(offset))?;
     let sprite_offset = reader.read_u32::<LittleEndian>()?;
+    println!("Sprite {} sprite_offset {}, offset: {}", sprite_id, sprite_offset, offset);
     reader.seek(SeekFrom::Start(sprite_offset as u64))?;
-    let sprite_size = reader.read_u16::<LittleEndian>()?;
-    let transparent_pixels = reader.read_u16::<LittleEndian>()?;
-    let colored_pixels = reader.read_u16::<LittleEndian>()?;
-    
-    println!("Reading sprite {}, sprite size {}, offset {}, trans pix: {}, color pix {}", sprite_id, sprite_size, offset, transparent_pixels, colored_pixels);
+    let dR = reader.read_u8()?;
+    let dG = reader.read_u8()?;
+    let dB = reader.read_u8()?;
+    let sprite_bytes = reader.read_u16::<LittleEndian>()?;
+    println!("Reading sprite {}, dR {}, dG{}, dB{}, bytes = {}", sprite_id, dR, dG, dB, sprite_bytes);
+
+    let mut pixel_ctr = 0;
+    // let mut byte_ctr = 0; 
+    // for mut i in 0..sprite_bytes {
+    //     let transparent_pixels = reader.read_u16::<LittleEndian>()?;
+    //     let colored_pixels = reader.read_u16::<LittleEndian>()?;
+    //     println!("{} Transparent pixels in run: {} ", i, transparent_pixels);
+    //     println!("{} Colored pixels in run: {} ", i, colored_pixels);
+    //     for _ in 0..transparent_pixels {
+    //         // sprite[pixel_ctr] = RGB { r: dR, g: dG, b: dB };
+    //         pixel_ctr+=1;
+    //     }
+    //     //read colord pixels
+    //     for _ in 0..colored_pixels {
+    //         let colorR = reader.read_u8()?;
+    //         let colorG = reader.read_u8()?;
+    //         let colorB = reader.read_u8()?;
+    //         // sprite[pixel_ctr] = RGB { r: colorR, g: colorG, b: colorB };
+
+    //         // println!("Color: {}, {}, {}", colorR, colorG, colorB);
+    //         pixel_ctr+=1;
+    //     }
+    //      byte_ctr += (colored_pixels as u32 * 3) + 4;
+    //     println!("Pixel counter: {}, byte counter {}", pixel_ctr, byte_ctr);
+    // }
+    let mut i: u32 = 0;
+    while i < sprite_bytes as u32{
+        let transparent_pixels = reader.read_u16::<LittleEndian>()?;
+        let colored_pixels = reader.read_u16::<LittleEndian>()?;
+        println!("{} Transparent pixels in run: {} ", i, transparent_pixels);
+        println!("{} Colored pixels in run: {} ", i, colored_pixels);
+
+        for _ in 0..transparent_pixels {
+            sprite[pixel_ctr] = RGB { r: dR, g: dG, b: dB };
+            pixel_ctr += 1;
+        }
+
+        for _ in 0..colored_pixels {
+            let colorR = reader.read_u8()?;
+            let colorG = reader.read_u8()?;
+            let colorB = reader.read_u8()?;
+            sprite[pixel_ctr] = RGB { r: colorR, g: colorG, b: colorB };
+            pixel_ctr += 1;
+        }
+
+        i += 4 + (3 * colored_pixels as u32) ;
+    }
+        //dump sprite data to binary file
+    // let mut sprite_file = File::create(format!("sprite_{}.bin", sprite_id))?;
+    // for i in 0..32*32 - 1 {
+    //     sprite_file.write_all(&[sprite[i].r, sprite[i].g, sprite[i].b])?;
+    // }
     Ok(())
 }

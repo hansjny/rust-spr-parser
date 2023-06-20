@@ -79,7 +79,6 @@ fn read_all_sprites<R: Read + Seek>(sprite_count : u16, reader: &mut R) -> io::R
     for i in 0..sprite_count {
         current_sprite += 1;
         read_sprite(current_sprite, reader)?;
-        break;
     }
 
     Ok(())
@@ -89,44 +88,17 @@ fn read_sprite<R: Read + Seek>(sprite_id : u16, reader : &mut R) -> io::Result<(
     let mut offset : u64 = 6 + ((sprite_id as u64 - 1)  * 4);
     reader.seek(SeekFrom::Start(offset))?;
     let sprite_offset = reader.read_u32::<LittleEndian>()?;
-    println!("Sprite {} sprite_offset {}, offset: {}", sprite_id, sprite_offset, offset);
     reader.seek(SeekFrom::Start(sprite_offset as u64))?;
     let dR = reader.read_u8()?;
     let dG = reader.read_u8()?;
     let dB = reader.read_u8()?;
     let sprite_bytes = reader.read_u16::<LittleEndian>()?;
-    println!("Reading sprite {}, dR {}, dG{}, dB{}, bytes = {}", sprite_id, dR, dG, dB, sprite_bytes);
 
     let mut pixel_ctr = 0;
-    // let mut byte_ctr = 0; 
-    // for mut i in 0..sprite_bytes {
-    //     let transparent_pixels = reader.read_u16::<LittleEndian>()?;
-    //     let colored_pixels = reader.read_u16::<LittleEndian>()?;
-    //     println!("{} Transparent pixels in run: {} ", i, transparent_pixels);
-    //     println!("{} Colored pixels in run: {} ", i, colored_pixels);
-    //     for _ in 0..transparent_pixels {
-    //         // sprite[pixel_ctr] = RGB { r: dR, g: dG, b: dB };
-    //         pixel_ctr+=1;
-    //     }
-    //     //read colord pixels
-    //     for _ in 0..colored_pixels {
-    //         let colorR = reader.read_u8()?;
-    //         let colorG = reader.read_u8()?;
-    //         let colorB = reader.read_u8()?;
-    //         // sprite[pixel_ctr] = RGB { r: colorR, g: colorG, b: colorB };
-
-    //         // println!("Color: {}, {}, {}", colorR, colorG, colorB);
-    //         pixel_ctr+=1;
-    //     }
-    //      byte_ctr += (colored_pixels as u32 * 3) + 4;
-    //     println!("Pixel counter: {}, byte counter {}", pixel_ctr, byte_ctr);
-    // }
     let mut i: u32 = 0;
     while i < sprite_bytes as u32{
         let transparent_pixels = reader.read_u16::<LittleEndian>()?;
         let colored_pixels = reader.read_u16::<LittleEndian>()?;
-        println!("{} Transparent pixels in run: {} ", i, transparent_pixels);
-        println!("{} Colored pixels in run: {} ", i, colored_pixels);
 
         for _ in 0..transparent_pixels {
             sprite[pixel_ctr] = RGB { r: dR, g: dG, b: dB };
@@ -137,16 +109,16 @@ fn read_sprite<R: Read + Seek>(sprite_id : u16, reader : &mut R) -> io::Result<(
             let colorR = reader.read_u8()?;
             let colorG = reader.read_u8()?;
             let colorB = reader.read_u8()?;
+            let _colorA = reader.read_u8()?;
             sprite[pixel_ctr] = RGB { r: colorR, g: colorG, b: colorB };
             pixel_ctr += 1;
         }
 
-        i += 4 + (3 * colored_pixels as u32) ;
+        i += 4 + (4 * colored_pixels as u32) ;
     }
-        //dump sprite data to binary file
-    // let mut sprite_file = File::create(format!("sprite_{}.bin", sprite_id))?;
-    // for i in 0..32*32 - 1 {
-    //     sprite_file.write_all(&[sprite[i].r, sprite[i].g, sprite[i].b])?;
-    // }
+    let mut sprite_file = File::create(format!("sprites/sprite_{}.bin", sprite_id))?;
+    for i in 0..32*32  {
+        sprite_file.write_all(&[sprite[i].r, sprite[i].g, sprite[i].b])?;
+    }
     Ok(())
 }
